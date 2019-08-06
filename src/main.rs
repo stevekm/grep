@@ -31,7 +31,18 @@ fn main() {
                         .get_matches();
 
     let inputFile = matches.value_of("inputFile").unwrap_or("-");
-    let delimiter = matches.value_of("delimiter").unwrap_or("\t");
+    let pattern = matches.value_of("pattern").unwrap();
     let reader = Reader { input: inputFile.to_string() };
 
+    // main program loop
+    for line in reader.get().lines() {
+        match line {
+            Ok(l) => {
+                if l.contains(pattern){
+                    println!("{}", l);
+                }
+            }
+            Err(e) => println!("error parsing line: {:?}", e),
+        }
+    }
 }

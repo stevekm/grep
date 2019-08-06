@@ -11,7 +11,7 @@ build:
 
 run:
 	printf 'foo\nbar\nbaz\nbuz\nfuzz\n' | cargo run -- bar
-	cargo run 4554548 data.txt
+	cargo run 158647522 data.txt
 
 test:
 	cargo test
