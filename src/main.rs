@@ -1,7 +1,9 @@
 extern crate clap;
+extern crate itertools;
 use clap::{Arg, App};
 use std::io::{self, BufReader, BufRead};
 use std::fs::{self};
+use itertools::Itertools; // 0.8.0
 
 struct Reader {
     input: String
@@ -17,11 +19,75 @@ impl Reader {
     }
 }
 
+#[derive(Debug)]
+struct LineBuffer {
+    before: Vec<String>,
+    before_size: usize,
+    after: Vec<String>,
+    after_size: usize,
+}
+
+impl LineBuffer {
+    fn add_before(&mut self, line: &str){
+        self.before.insert(0,line.to_string());
+        if self.before.len() > self.before_size {
+            self.before.truncate(self.before_size);
+        }
+    }
+    fn add_after(&mut self, line: &str){
+        self.after.insert(0,line.to_string());
+        if self.after.len() > self.after_size {
+            self.after.truncate(self.after_size);
+        }
+    }
+}
+
 fn pattern_match(pattern: &str, contents: &str) -> bool {
     if contents.contains(pattern){
         true
     } else {
         false
+    }
+}
+
+fn match_lines_with_buffer(reader: &Reader, pattern: &str){
+    let before_size = 2;
+    let after_size = 2;
+    let mut before = Vec::with_capacity(before_size);
+    let mut after = Vec::with_capacity(after_size);
+    let mut buffer = LineBuffer{
+        before: before,
+        before_size: before_size,
+        after_size: after_size,
+        after: after};
+
+    // main program loop
+    for line in reader.get().lines() {
+        match line {
+            Ok(l) => {
+                // buffer.before.push(l.clone());
+                buffer.add_before(&l);
+                if pattern_match(&pattern, &l) {
+                    println!("{}", l);
+                }
+                println!("{:?}",buffer);
+            }
+            Err(e) => println!("error parsing line: {:?}", e),
+        }
+    }
+}
+
+fn match_lines(reader: &Reader, pattern: &str){
+    // main program loop
+    for line in reader.get().lines() {
+        match line {
+            Ok(l) => {
+                if pattern_match(&pattern, &l) {
+                    println!("{}", l);
+                }
+            }
+            Err(e) => println!("error parsing line: {:?}", e),
+        }
     }
 }
 
@@ -42,17 +108,15 @@ fn main() {
     let pattern = matches.value_of("pattern").unwrap();
     let reader = Reader { input: inputFile.to_string() };
 
-    // main program loop
-    for line in reader.get().lines() {
-        match line {
-            Ok(l) => {
-                if pattern_match(&pattern, &l) {
-                    println!("{}", l);
-                }
-            }
-            Err(e) => println!("error parsing line: {:?}", e),
-        }
-    }
+    match_lines(&reader, &pattern);
+
+    // let stdin = std::io::stdin();
+    // for lines in &stdin.lock().lines().chunks(3) {
+    //     for (i, line) in lines.enumerate() {
+    //         println!("Line {}: {:?}", i, line);
+    //         println!("......")
+    //     }
+    // }
 }
 
 
