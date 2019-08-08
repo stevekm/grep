@@ -1,9 +1,8 @@
 extern crate clap;
-extern crate itertools;
 use clap::{Arg, App};
-use std::io::{self, BufReader, BufRead};
-use std::fs::{self};
-use itertools::Itertools; // 0.8.0
+use std::io::{self, BufReader, BufRead, BufWriter};
+use std::fs::{self, File};
+use std::path::Path;
 
 struct Reader {
     input: String
@@ -11,11 +10,23 @@ struct Reader {
 
 impl Reader {
     fn get(&self) -> Box<BufRead> {
-        let reader: Box<BufRead> = match self.input.as_str() {
+        match self.input.as_str() {
         "-" => Box::new(BufReader::new(io::stdin())),
         _ => Box::new(BufReader::new(fs::File::open(self.input.as_str()).unwrap()))
-        };
-        return reader
+        }
+    }
+}
+
+struct Writer {
+    output: String
+}
+
+impl Writer {
+    fn get(&self) -> BufWriter<Box<dyn std::io::Write>> {
+        match self.output.as_str() {
+            "STDOUT" => BufWriter::new(Box::new(io::stdout())),
+            _ => BufWriter::new(Box::new(File::create(Path::new(&self.output)).unwrap()))
+        }
     }
 }
 
@@ -102,21 +113,19 @@ fn main() {
                         .arg(Arg::with_name("inputFile")
                             .help("The input file to use")
                             .index(2))
+                        .arg(Arg::with_name("outputFile")
+                            .takes_value(true)
+                            .help("Output file to write to")
+                            .short("o"))
                         .get_matches();
 
     let inputFile = matches.value_of("inputFile").unwrap_or("-");
+    let outputFile = matches.value_of("outputFile").unwrap_or("STDOUT");
     let pattern = matches.value_of("pattern").unwrap();
     let reader = Reader { input: inputFile.to_string() };
+    let writer = Writer { output: outputFile.to_string() };
 
     match_lines(&reader, &pattern);
-
-    // let stdin = std::io::stdin();
-    // for lines in &stdin.lock().lines().chunks(3) {
-    //     for (i, line) in lines.enumerate() {
-    //         println!("Line {}: {:?}", i, line);
-    //         println!("......")
-    //     }
-    // }
 }
 
 
@@ -146,4 +155,10 @@ mod tests {
         let expected_output = false;
         assert_eq!(output, expected_output);
     }
+
+    // #[test]
+    // fn test_stdin_stdout_mock(){
+    //     let input = "foo\nbar\nbaz\n";
+    //     let mut output = Vec::new();
+    // }
 }
