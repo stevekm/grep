@@ -3,6 +3,7 @@ use clap::{Arg, App};
 use std::io::{self, BufReader, BufRead, BufWriter};
 use std::fs::{self, File};
 use std::path::Path;
+use std::io::Write;
 
 struct Reader {
     input: String
@@ -88,13 +89,14 @@ fn match_lines_with_buffer(reader: &Reader, pattern: &str){
     }
 }
 
-fn match_lines(reader: &Reader, pattern: &str){
+fn match_lines(reader: &Reader, writer: &Writer, pattern: &str){
+    let mut write_handle = writer.get();
     // main program loop
     for line in reader.get().lines() {
         match line {
             Ok(l) => {
                 if pattern_match(&pattern, &l) {
-                    println!("{}", l);
+                    writeln!(write_handle, "{}", l);
                 }
             }
             Err(e) => println!("error parsing line: {:?}", e),
@@ -125,7 +127,7 @@ fn main() {
     let reader = Reader { input: inputFile.to_string() };
     let writer = Writer { output: outputFile.to_string() };
 
-    match_lines(&reader, &pattern);
+    match_lines(&reader, &writer, &pattern);
 }
 
 
