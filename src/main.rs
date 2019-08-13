@@ -4,7 +4,7 @@ use std::io::{self, BufReader, BufRead, BufWriter};
 use std::fs::{self, File};
 use std::path::Path;
 use std::io::Write;
-// use grep::Chunks;
+use grep::Chunks;
 
 struct Reader {
     input: String
@@ -58,19 +58,24 @@ fn pattern_match(pattern: &str, contents: &str) -> bool {
 fn match_lines_with_buffer(reader: &Reader, writer: &Writer, pattern: &str){
     let mut write_handle = writer.get();
     let before_size = 2;
-    let after_size = 2;
-    let mut before = Vec::with_capacity(before_size);
+    let after_size = 1;
+    let before = Vec::with_capacity(before_size);
     let mut buffer = LineBuffer{ contents: before, size: before_size };
 
     // main program loop
-    for line in reader.get().lines() {
-        match line {
+    // for line in reader.get().lines() {
+    for slice in Chunks::new(reader.get().lines(), after_size) {
+        match &slice[0] {
             Ok(l) => {
+                // println!("{:?}", slice);
+                // println!("{:?}", l);
                 if pattern_match(&pattern, &l) {
                     for item in buffer.contents.iter().rev(){
-                        writeln!(write_handle, "{}", item);
+                        writeln!(write_handle, "pre-buffer: {}", item);
+                        // println!("{:?}", item);
                     }
-                    writeln!(write_handle, "{}", l);
+                    writeln!(write_handle, "match: {}", l);
+                    // println!("{:?}", slice);
                 }
                 buffer.add(&l);
             }
