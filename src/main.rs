@@ -4,6 +4,7 @@ use std::io::{self, BufReader, BufRead, BufWriter};
 use std::fs::{self, File};
 use std::path::Path;
 use std::io::Write;
+// use grep::Chunks;
 
 struct Reader {
     input: String
@@ -33,23 +34,15 @@ impl Writer {
 
 #[derive(Debug)]
 struct LineBuffer {
-    before: Vec<String>,
-    before_size: usize,
-    after: Vec<String>,
-    after_size: usize,
+    contents: Vec<String>,
+    size: usize,
 }
 
 impl LineBuffer {
-    fn add_before(&mut self, line: &str){
-        self.before.insert(0,line.to_string());
-        if self.before.len() > self.before_size {
-            self.before.truncate(self.before_size);
-        }
-    }
-    fn add_after(&mut self, line: &str){
-        self.after.insert(0,line.to_string());
-        if self.after.len() > self.after_size {
-            self.after.truncate(self.after_size);
+    fn add(&mut self, line: &str){
+        self.contents.insert(0,line.to_string());
+        if self.contents.len() > self.size {
+            self.contents.truncate(self.size);
         }
     }
 }
@@ -62,27 +55,24 @@ fn pattern_match(pattern: &str, contents: &str) -> bool {
     }
 }
 
-fn match_lines_with_buffer(reader: &Reader, pattern: &str){
+fn match_lines_with_buffer(reader: &Reader, writer: &Writer, pattern: &str){
+    let mut write_handle = writer.get();
     let before_size = 2;
     let after_size = 2;
     let mut before = Vec::with_capacity(before_size);
-    let mut after = Vec::with_capacity(after_size);
-    let mut buffer = LineBuffer{
-        before: before,
-        before_size: before_size,
-        after_size: after_size,
-        after: after};
+    let mut buffer = LineBuffer{ contents: before, size: before_size };
 
     // main program loop
     for line in reader.get().lines() {
         match line {
             Ok(l) => {
-                // buffer.before.push(l.clone());
-                buffer.add_before(&l);
                 if pattern_match(&pattern, &l) {
-                    println!("{}", l);
+                    for item in buffer.contents.iter().rev(){
+                        writeln!(write_handle, "{}", item);
+                    }
+                    writeln!(write_handle, "{}", l);
                 }
-                println!("{:?}",buffer);
+                buffer.add(&l);
             }
             Err(e) => println!("error parsing line: {:?}", e),
         }
@@ -127,7 +117,8 @@ fn main() {
     let reader = Reader { input: inputFile.to_string() };
     let writer = Writer { output: outputFile.to_string() };
 
-    match_lines(&reader, &writer, &pattern);
+    // match_lines(&reader, &writer, &pattern);
+    match_lines_with_buffer(&reader, &writer, &pattern);
 }
 
 
