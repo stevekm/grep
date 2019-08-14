@@ -4,7 +4,7 @@ use std::io::{self, BufReader, BufRead, BufWriter};
 use std::fs::{self, File};
 use std::path::Path;
 use std::io::Write;
-use itertools::multipeek;
+use itertools::{multipeek, MultiPeek};
 
 struct Config {
     before: usize,
@@ -62,6 +62,32 @@ fn pattern_match(pattern: &str, contents: &str) -> bool {
     }
 }
 
+fn write_before(buffer: &LineBuffer,
+    write_handle: &mut BufWriter<std::boxed::Box<dyn std::io::Write>>){
+    writeln!(write_handle, "{}", "--");
+    for item in buffer.contents.iter().rev(){
+        writeln!(write_handle, "{}", item);
+    }
+}
+
+fn write_after(num_after: usize,
+    itr: &mut MultiPeek<std::io::Lines<std::boxed::Box<dyn std::io::BufRead>>>,
+    write_handle: &mut BufWriter<std::boxed::Box<dyn std::io::Write>>){
+        for _ in 0..num_after {
+            let peek = itr.peek();
+            match peek {
+                Some(peek_res) => {
+                    match peek_res {
+                        Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
+                        Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
+                    };
+                }
+                None => ()
+            }
+        }
+        writeln!(write_handle, "{}", "--");
+}
+
 fn match_lines_with_buffer(reader: &Reader, writer: &Writer, config: &Config){
     let pattern = &config.pattern;
     let mut write_handle = writer.get();
@@ -81,29 +107,14 @@ fn match_lines_with_buffer(reader: &Reader, writer: &Writer, config: &Config){
                         if pattern_match(&pattern, &l_val) {
                             // first write out the previous lines buffer
                             if before_size > 0 {
-                                writeln!(write_handle, "{}", "--");
-                                for item in buffer.contents.iter().rev(){
-                                    writeln!(write_handle, "{}", item);
-                                }
+                                write_before(&buffer, &mut write_handle);
                             }
                             // write the current line
                             writeln!(write_handle, "{}", l_val);
 
                             // write out the following lines
                             if after_size > 0 {
-                                for _ in 0..after_size {
-                                    let peek = mp.peek();
-                                    match peek {
-                                        Some(peek_res) => {
-                                            match peek_res {
-                                                Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
-                                                Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
-                                            };
-                                        }
-                                        None => ()
-                                    }
-                                }
-                                writeln!(write_handle, "{}", "--");
+                                write_after(after_size, &mut mp, &mut write_handle);
                             }
                         }
                         // add the current line to the buffer
