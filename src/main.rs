@@ -4,7 +4,7 @@ use std::io::{self, BufReader, BufRead, BufWriter};
 use std::fs::{self, File};
 use std::path::Path;
 use std::io::Write;
-// use grep::Chunks;
+use itertools::multipeek;
 
 struct Reader {
     input: String
@@ -61,20 +61,45 @@ fn match_lines_with_buffer(reader: &Reader, writer: &Writer, pattern: &str){
     let after_size = 2;
     let mut before = Vec::with_capacity(before_size);
     let mut buffer = LineBuffer{ contents: before, size: before_size };
+    let mut mp = multipeek(reader.get().lines());
 
     // main program loop
-    for line in reader.get().lines() {
+    loop {
+        let line = mp.next();
         match line {
-            Ok(l) => {
-                if pattern_match(&pattern, &l) {
-                    for item in buffer.contents.iter().rev(){
-                        writeln!(write_handle, "{}", item);
-                    }
-                    writeln!(write_handle, "{}", l);
+            Some(l) => {
+                match l {
+                    Ok(l_val) => {
+                        if pattern_match(&pattern, &l_val) {
+                            // first write out the previous lines buffer
+                            for item in buffer.contents.iter().rev(){
+                                writeln!(write_handle, "{}", item);
+                            }
+                            // write the current line
+                            writeln!(write_handle, "{}", l_val);
+
+                            // write out the following lines
+                            for _ in 0..after_size {
+                                let peek = mp.peek();
+                                match peek {
+                                    Some(peek_res) => {
+                                        match peek_res {
+                                            Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
+                                            Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
+                                        };
+                                    }
+                                    None => ()
+                                }
+                            }
+                        }
+
+                        // add the current line to the buffer
+                        buffer.add(&l_val);
+                    },
+                    Err(e) => println!("error parsing line: {:?}", e),
                 }
-                buffer.add(&l);
             }
-            Err(e) => println!("error parsing line: {:?}", e),
+            None => break,
         }
     }
 }
