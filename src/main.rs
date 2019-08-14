@@ -62,10 +62,11 @@ fn pattern_match(pattern: &str, contents: &str) -> bool {
     }
 }
 
-fn match_lines_with_buffer(reader: &Reader, writer: &Writer, pattern: &str){
+fn match_lines_with_buffer(reader: &Reader, writer: &Writer, config: &Config){
+    let pattern = &config.pattern;
     let mut write_handle = writer.get();
-    let before_size = 2;
-    let after_size = 2;
+    let before_size = config.before;
+    let after_size = config.after;
     let mut before = Vec::with_capacity(before_size);
     let mut buffer = LineBuffer{ contents: before, size: before_size };
     let mut mp = multipeek(reader.get().lines());
@@ -79,8 +80,11 @@ fn match_lines_with_buffer(reader: &Reader, writer: &Writer, pattern: &str){
                     Ok(l_val) => {
                         if pattern_match(&pattern, &l_val) {
                             // first write out the previous lines buffer
-                            for item in buffer.contents.iter().rev(){
-                                writeln!(write_handle, "{}", item);
+                            if before_size > 0 {
+                                writeln!(write_handle, "{}", "--");
+                                for item in buffer.contents.iter().rev(){
+                                    writeln!(write_handle, "{}", item);
+                                }
                             }
                             // write the current line
                             writeln!(write_handle, "{}", l_val);
@@ -172,14 +176,14 @@ fn main() {
     let inputFile = matches.value_of("inputFile").unwrap();
     let outputFile = matches.value_of("outputFile").unwrap();
     let pattern = matches.value_of("pattern").unwrap();
-    let after = matches.value_of("after").unwrap().parse::<usize>();
-    let before = matches.value_of("before").unwrap().parse::<usize>();
-    // let config = Config { before: before, after: after, pattern: pattern }
+    let after = matches.value_of("after").unwrap().parse::<usize>().unwrap(); // safe to unwrap due to validator
+    let before = matches.value_of("before").unwrap().parse::<usize>().unwrap();
+    let config = Config { before: before, after: after, pattern: pattern.to_string() };
     let reader = Reader { input: inputFile.to_string() };
     let writer = Writer { output: outputFile.to_string() };
 
     // match_lines(&reader, &writer, &pattern);
-    match_lines_with_buffer(&reader, &writer, &pattern);
+    match_lines_with_buffer(&reader, &writer, &config);
 }
 
 
