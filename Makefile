@@ -10,8 +10,9 @@ build:
 	cargo build
 
 run:
-	printf 'foo\nbar\nbaz\nbuz\nfuzz\n' | cargo run -- bar
-	cargo run 15 data.txt
+	cargo build
+	printf 'foo\nbar\nbaz\nbuz\nfuzz\n' | target/debug/grep bar
+	target/debug/grep 15 data.txt
 
 test:
 	cargo test

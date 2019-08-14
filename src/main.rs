@@ -6,6 +6,12 @@ use std::path::Path;
 use std::io::Write;
 use itertools::multipeek;
 
+struct Config {
+    before: usize,
+    after: usize,
+    pattern: String,
+}
+
 struct Reader {
     input: String
 }
@@ -14,6 +20,7 @@ impl Reader {
     fn get(&self) -> Box<BufRead> {
         match self.input.as_str() {
         "-" => Box::new(BufReader::new(io::stdin())),
+        "STDIN" => Box::new(BufReader::new(io::stdin())),
         _ => Box::new(BufReader::new(fs::File::open(self.input.as_str()).unwrap()))
         }
     }
@@ -79,20 +86,22 @@ fn match_lines_with_buffer(reader: &Reader, writer: &Writer, pattern: &str){
                             writeln!(write_handle, "{}", l_val);
 
                             // write out the following lines
-                            for _ in 0..after_size {
-                                let peek = mp.peek();
-                                match peek {
-                                    Some(peek_res) => {
-                                        match peek_res {
-                                            Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
-                                            Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
-                                        };
+                            if after_size > 0 {
+                                for _ in 0..after_size {
+                                    let peek = mp.peek();
+                                    match peek {
+                                        Some(peek_res) => {
+                                            match peek_res {
+                                                Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
+                                                Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
+                                            };
+                                        }
+                                        None => ()
                                     }
-                                    None => ()
                                 }
+                                writeln!(write_handle, "{}", "--");
                             }
                         }
-
                         // add the current line to the buffer
                         buffer.add(&l_val);
                     },
@@ -119,6 +128,16 @@ fn match_lines(reader: &Reader, writer: &Writer, pattern: &str){
     }
 }
 
+
+fn string_to_int(val: String) -> Result<(), String> {
+    match val.parse::<usize>() {
+      Ok(n) => { return Ok(()); },
+      Err(e) => {
+          return Err(format!("Value {:?} cannot be coerced to integer", val))
+      },
+    }
+}
+
 fn main() {
     let matches = App::new("grep")
                         .about("GNU grep clone")
@@ -129,16 +148,33 @@ fn main() {
                             .index(1))
                         .arg(Arg::with_name("inputFile")
                             .help("The input file to use")
-                            .index(2))
+                            .index(2)
+                            .default_value("STDIN"))
                         .arg(Arg::with_name("outputFile")
                             .takes_value(true)
                             .help("Output file to write to")
-                            .short("o"))
+                            .short("o")
+                            .default_value("STDOUT"))
+                        .arg(Arg::with_name("after")
+                            .takes_value(true)
+                            .help("Number of lines to print after each match")
+                            .short("A")
+                            .default_value("0")
+                            .validator(string_to_int))
+                        .arg(Arg::with_name("before")
+                            .takes_value(true)
+                            .help("Number of lines to print before each match")
+                            .short("B")
+                            .default_value("0")
+                            .validator(string_to_int))
                         .get_matches();
 
-    let inputFile = matches.value_of("inputFile").unwrap_or("-");
-    let outputFile = matches.value_of("outputFile").unwrap_or("STDOUT");
+    let inputFile = matches.value_of("inputFile").unwrap();
+    let outputFile = matches.value_of("outputFile").unwrap();
     let pattern = matches.value_of("pattern").unwrap();
+    let after = matches.value_of("after").unwrap().parse::<usize>();
+    let before = matches.value_of("before").unwrap().parse::<usize>();
+    // let config = Config { before: before, after: after, pattern: pattern }
     let reader = Reader { input: inputFile.to_string() };
     let writer = Writer { output: outputFile.to_string() };
 
