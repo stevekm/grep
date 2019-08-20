@@ -91,7 +91,7 @@ fn write_after(num_after: usize,
 fn match_lines_with_buffer<I>(input: I, writer: &Writer, config: &Config)
 where
     I: IntoIterator,
-    I::Item: AsRef<str>,
+    I: IntoIterator<Item = String>,
     <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
     <I as std::iter::IntoIterator>::Item: std::fmt::Display,
     {
@@ -101,7 +101,6 @@ where
     let after_size = config.after;
     let mut before = Vec::with_capacity(before_size);
     let mut buffer = LineBuffer{ contents: before, size: before_size };
-    // let mut mp = multipeek(reader.get().lines());
     let mut mp = multipeek(input);
 
     // main program loop
@@ -109,26 +108,23 @@ where
         let line = mp.next();
         match line {
             Some(l) => {
-                // match l {
-                    // Ok(l_val) => {
-                        if pattern_match(&pattern, &l) {
-                            // first write out the previous lines buffer
-                            if before_size > 0 {
-                                write_before(&buffer, &mut write_handle);
-                            }
-                            // write the current line
-                            writeln!(write_handle, "{}", l);
+                println!("{:?}", l);
+                if pattern_match(&pattern, &l) {
+                    // first write out the previous lines buffer
+                    // if before_size > 0 {
+                    //     write_before(&buffer, &mut write_handle);
+                    // }
+                    
+                    // write the current line
+                    writeln!(write_handle, "{}", l);
 
-                            // write out the following lines
-                            if after_size > 0 {
-                                write_after(after_size, &mut mp, &mut write_handle);
-                            }
-                        }
-                        // add the current line to the buffer
-                        buffer.add(&l);
-                    // },
-                    // Err(e) => println!("error parsing line: {:?}", e),
-                // }
+                    // write out the following lines
+                    // if after_size > 0 {
+                    //     write_after(after_size, &mut mp, &mut write_handle);
+                    // }
+                }
+                // add the current line to the buffer
+                buffer.add(&l);
             }
             None => break,
         }
@@ -203,10 +199,6 @@ fn main() {
                             .validator(string_to_int))
                         .get_matches();
 
-
-    // println!("{:?}", );
-    // x.iter().foo();
-
     let inputFile = matches.value_of("inputFile").unwrap();
     let outputFile = matches.value_of("outputFile").unwrap();
     let pattern = matches.value_of("pattern").unwrap();
@@ -216,15 +208,10 @@ fn main() {
     let reader = Reader { input: inputFile.to_string() };
     let writer = Writer { output: outputFile.to_string() };
 
-    let reader_itr = reader.get().lines().map(Result::unwrap); // will crash horribly if failed to read a line
+    let reader_itr = reader.get().lines().map(Result::unwrap); // TODO: error handling
 
     // match_lines(&reader, &writer, &pattern);
-    match_lines_with_buffer(&reader_itr, &writer, &config);
-    // let x = vec!["a", "b"];
-    // let mut itr = x.iter();
-    // take_itr(itr);
-    // take_itr();
-
+    match_lines_with_buffer(reader_itr, &writer, &config);
 }
 
 #[cfg(test)]
