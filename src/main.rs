@@ -88,29 +88,36 @@ fn write_after(num_after: usize,
         writeln!(write_handle, "{}", "--");
 }
 
-fn match_lines_with_buffer(reader: &Reader, writer: &Writer, config: &Config){
+fn match_lines_with_buffer<I>(input: I, writer: &Writer, config: &Config)
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Display,
+    {
     let pattern = &config.pattern;
     let mut write_handle = writer.get();
     let before_size = config.before;
     let after_size = config.after;
     let mut before = Vec::with_capacity(before_size);
     let mut buffer = LineBuffer{ contents: before, size: before_size };
-    let mut mp = multipeek(reader.get().lines());
+    // let mut mp = multipeek(reader.get().lines());
+    let mut mp = multipeek(input);
 
     // main program loop
     loop {
         let line = mp.next();
         match line {
             Some(l) => {
-                match l {
-                    Ok(l_val) => {
-                        if pattern_match(&pattern, &l_val) {
+                // match l {
+                    // Ok(l_val) => {
+                        if pattern_match(&pattern, &l) {
                             // first write out the previous lines buffer
                             if before_size > 0 {
                                 write_before(&buffer, &mut write_handle);
                             }
                             // write the current line
-                            writeln!(write_handle, "{}", l_val);
+                            writeln!(write_handle, "{}", l);
 
                             // write out the following lines
                             if after_size > 0 {
@@ -118,10 +125,10 @@ fn match_lines_with_buffer(reader: &Reader, writer: &Writer, config: &Config){
                             }
                         }
                         // add the current line to the buffer
-                        buffer.add(&l_val);
-                    },
-                    Err(e) => println!("error parsing line: {:?}", e),
-                }
+                        buffer.add(&l);
+                    // },
+                    // Err(e) => println!("error parsing line: {:?}", e),
+                // }
             }
             None => break,
         }
@@ -152,6 +159,18 @@ fn string_to_int(val: String) -> Result<(), String> {
       },
     }
 }
+
+fn take_itr<I>(itr: I)
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
+{
+    for item in itr {
+        println!("foo: {:?}", item);
+    }
+}
+
 
 fn main() {
     let matches = App::new("grep")
@@ -184,6 +203,10 @@ fn main() {
                             .validator(string_to_int))
                         .get_matches();
 
+
+    // println!("{:?}", );
+    // x.iter().foo();
+
     let inputFile = matches.value_of("inputFile").unwrap();
     let outputFile = matches.value_of("outputFile").unwrap();
     let pattern = matches.value_of("pattern").unwrap();
@@ -193,10 +216,16 @@ fn main() {
     let reader = Reader { input: inputFile.to_string() };
     let writer = Writer { output: outputFile.to_string() };
 
-    // match_lines(&reader, &writer, &pattern);
-    match_lines_with_buffer(&reader, &writer, &config);
-}
+    let reader_itr = reader.get().lines().map(Result::unwrap); // will crash horribly if failed to read a line
 
+    // match_lines(&reader, &writer, &pattern);
+    match_lines_with_buffer(&reader_itr, &writer, &config);
+    // let x = vec!["a", "b"];
+    // let mut itr = x.iter();
+    // take_itr(itr);
+    // take_itr();
+
+}
 
 #[cfg(test)]
 mod tests {
@@ -223,6 +252,14 @@ mod tests {
         let output = pattern_match(&pattern, &contents);
         let expected_output = false;
         assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn test_foo(){
+        // let x = vec!["a", "b"];
+        // for i in x.iter() {
+        //     println!("{:?}", i);
+        // }
     }
 
     // #[test]
