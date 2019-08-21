@@ -1,4 +1,5 @@
 extern crate clap;
+
 use clap::{Arg, App};
 use std::io::{self, BufReader, BufRead, BufWriter};
 use std::fs::{self, File};
@@ -19,9 +20,9 @@ struct Reader {
 impl Reader {
     fn get(&self) -> Box<BufRead> {
         match self.input.as_str() {
-        "-" => Box::new(BufReader::new(io::stdin())),
-        "STDIN" => Box::new(BufReader::new(io::stdin())),
-        _ => Box::new(BufReader::new(fs::File::open(self.input.as_str()).unwrap()))
+            "-" => Box::new(BufReader::new(io::stdin())),
+            "STDIN" => Box::new(BufReader::new(io::stdin())),
+            _ => Box::new(BufReader::new(fs::File::open(self.input.as_str()).unwrap()))
         }
     }
 }
@@ -46,8 +47,8 @@ struct LineBuffer {
 }
 
 impl LineBuffer {
-    fn add(&mut self, line: &str){
-        self.contents.insert(0,line.to_string());
+    fn add(&mut self, line: &str) {
+        self.contents.insert(0, line.to_string());
         if self.contents.len() > self.size {
             self.contents.truncate(self.size);
         }
@@ -55,7 +56,7 @@ impl LineBuffer {
 }
 
 fn pattern_match(pattern: &str, contents: &str) -> bool {
-    if contents.contains(pattern){
+    if contents.contains(pattern) {
         true
     } else {
         false
@@ -63,76 +64,96 @@ fn pattern_match(pattern: &str, contents: &str) -> bool {
 }
 
 fn write_before(buffer: &LineBuffer,
-    write_handle: &mut BufWriter<std::boxed::Box<dyn std::io::Write>>){
+                write_handle: &mut BufWriter<std::boxed::Box<dyn std::io::Write>>) {
     writeln!(write_handle, "{}", "--");
-    for item in buffer.contents.iter().rev(){
+    for item in buffer.contents.iter().rev() {
         writeln!(write_handle, "{}", item);
     }
 }
 
 fn write_after(num_after: usize,
-    itr: &mut MultiPeek<std::io::Lines<std::boxed::Box<dyn std::io::BufRead>>>,
-    write_handle: &mut BufWriter<std::boxed::Box<dyn std::io::Write>>){
-        for _ in 0..num_after {
-            let peek = itr.peek();
-            match peek {
-                Some(peek_res) => {
-                    match peek_res {
-                        Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
-                        Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
-                    };
-                }
-                None => ()
+               itr: &mut MultiPeek<std::io::Lines<std::boxed::Box<dyn std::io::BufRead>>>,
+               write_handle: &mut BufWriter<std::boxed::Box<dyn std::io::Write>>) {
+    for _ in 0..num_after {
+        let peek = itr.peek();
+        match peek {
+            Some(peek_res) => {
+                match peek_res {
+                    Ok(peek_val) => writeln!(write_handle, "{}", peek_val),
+                    Err(e) => writeln!(write_handle, "error peek value line: {:?}", e),
+                };
             }
+            None => ()
         }
-        writeln!(write_handle, "{}", "--");
+    }
+    writeln!(write_handle, "{}", "--");
 }
 
-struct MatchIterator <'a, I>
-where
-    I: std::iter::Iterator,
+struct MatchIterator<'a, I>
+    where
+        I: std::iter::Iterator,
+        I: Iterator<Item=String>,
 {
     mp: MultiPeek<I>,
     config: &'a Config,
+    buffer: LineBuffer,
 }
-impl<'a, I> MatchIterator <'a, I>
-where
-    I: std::iter::Iterator,
+
+impl<'a, I> MatchIterator<'a, I>
+    where
+        I: std::iter::Iterator,
+        I: Iterator<Item=String>,
 {
     fn new(input: I, config: &Config) -> MatchIterator<I> {
-    let mut mp = multipeek(input);
-    MatchIterator { mp: mp, config: config }
+        let before_size = config.before;
+        let mut before = Vec::with_capacity(before_size);
+        let mut buffer = LineBuffer { contents: before, size: before_size };
+        let mut mp = multipeek(input);
+        MatchIterator { mp: mp, config: config, buffer: buffer }
+    }
+    fn get_next(&mut self) -> Option<String> {
+        let line = self.mp.next();
+        match line {
+            Some(l) => {
+                // how to make this work???
+//                if pattern_match(&self.config.pattern, &l) {
+//                    return Some(l);
+//                }
+                Some(l)
+            }
+            None => None
+        }
     }
 }
-// impl Iterator for MatchIterator {
-//     type Item = String;
-//     fn next(&mut self) -> Option<String> {
-//         let line = self.input.next();
-//         match line {
-//             Some(l) => {
-//                 match l {
-//                     Ok(l_val) => Some(format!("foo: {}", l_val)),
-//                     Err(e) => Some(format!("error parsing line: {:?}", e)),
-//                 }
-//             }
-//             None => None
-//         }
-//     }
-// }
+
+impl<'a, I> Iterator for MatchIterator<'a, I>
+    where
+        I: std::iter::Iterator,
+        I: Iterator<Item=String>,
+{
+    type Item = String;
+    fn next(&mut self) -> Option<String> {
+        let next_item = self.get_next();
+        match next_item {
+            Some(l) => Some(l),
+            None => None,
+        }
+    }
+}
 
 fn match_lines_with_buffer<I>(input: I, writer: &Writer, config: &Config)
-where
-    I: IntoIterator,
-    I: IntoIterator<Item = String>,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Display,
-    {
+    where
+        I: IntoIterator,
+        I: IntoIterator<Item=String>,
+        <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
+        <I as std::iter::IntoIterator>::Item: std::fmt::Display,
+{
     let pattern = &config.pattern;
     let mut write_handle = writer.get();
     let before_size = config.before;
     let after_size = config.after;
     let mut before = Vec::with_capacity(before_size);
-    let mut buffer = LineBuffer{ contents: before, size: before_size };
+    let mut buffer = LineBuffer { contents: before, size: before_size };
     let mut mp = multipeek(input);
 
     // main program loop
@@ -140,7 +161,7 @@ where
         let line = mp.next();
         match line {
             Some(l) => {
-                println!("{:?}", l); // dev only
+//                println!("{:?}", l); // dev only
                 if pattern_match(&pattern, &l) {
                     // first write out the previous lines buffer
                     // if before_size > 0 {
@@ -163,7 +184,7 @@ where
     }
 }
 
-fn match_lines(reader: &Reader, writer: &Writer, pattern: &str){
+fn match_lines(reader: &Reader, writer: &Writer, pattern: &str) {
     let mut write_handle = writer.get();
     // main program loop
     for line in reader.get().lines() {
@@ -181,18 +202,18 @@ fn match_lines(reader: &Reader, writer: &Writer, pattern: &str){
 
 fn string_to_int(val: String) -> Result<(), String> {
     match val.parse::<usize>() {
-      Ok(n) => { return Ok(()); },
-      Err(e) => {
-          return Err(format!("Value {:?} cannot be coerced to integer", val))
-      },
+        Ok(n) => { return Ok(()); }
+        Err(e) => {
+            return Err(format!("Value {:?} cannot be coerced to integer", val));
+        }
     }
 }
 
 fn take_itr<I>(itr: I)
-where
-    I: IntoIterator,
-    I::Item: AsRef<str>,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+        <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
 {
     for item in itr {
         println!("foo: {:?}", item);
@@ -202,34 +223,34 @@ where
 
 fn main() {
     let matches = App::new("grep")
-                        .about("GNU grep clone")
-                        .arg(Arg::with_name("pattern")
-                            .takes_value(true)
-                            .required(true)
-                            .help("Pattern to search for")
-                            .index(1))
-                        .arg(Arg::with_name("inputFile")
-                            .help("The input file to use")
-                            .index(2)
-                            .default_value("STDIN"))
-                        .arg(Arg::with_name("outputFile")
-                            .takes_value(true)
-                            .help("Output file to write to")
-                            .short("o")
-                            .default_value("STDOUT"))
-                        .arg(Arg::with_name("after")
-                            .takes_value(true)
-                            .help("Number of lines to print after each match")
-                            .short("A")
-                            .default_value("0")
-                            .validator(string_to_int))
-                        .arg(Arg::with_name("before")
-                            .takes_value(true)
-                            .help("Number of lines to print before each match")
-                            .short("B")
-                            .default_value("0")
-                            .validator(string_to_int))
-                        .get_matches();
+        .about("GNU grep clone")
+        .arg(Arg::with_name("pattern")
+            .takes_value(true)
+            .required(true)
+            .help("Pattern to search for")
+            .index(1))
+        .arg(Arg::with_name("inputFile")
+            .help("The input file to use")
+            .index(2)
+            .default_value("STDIN"))
+        .arg(Arg::with_name("outputFile")
+            .takes_value(true)
+            .help("Output file to write to")
+            .short("o")
+            .default_value("STDOUT"))
+        .arg(Arg::with_name("after")
+            .takes_value(true)
+            .help("Number of lines to print after each match")
+            .short("A")
+            .default_value("0")
+            .validator(string_to_int))
+        .arg(Arg::with_name("before")
+            .takes_value(true)
+            .help("Number of lines to print before each match")
+            .short("B")
+            .default_value("0")
+            .validator(string_to_int))
+        .get_matches();
 
     let inputFile = matches.value_of("inputFile").unwrap();
     let outputFile = matches.value_of("outputFile").unwrap();
@@ -243,7 +264,12 @@ fn main() {
     let reader_itr = reader.get().lines().map(Result::unwrap); // TODO: error handling
 
     // match_lines(&reader, &writer, &pattern);
-    match_lines_with_buffer(reader_itr, &writer, &config);
+//    match_lines_with_buffer(reader_itr, &writer, &config);
+
+    let match_itr = MatchIterator::new(reader_itr, &config);
+    for item in match_itr {
+        println!("{:?}", item);
+    }
 }
 
 #[cfg(test)]
@@ -256,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_match1(){
+    fn test_pattern_match1() {
         let pattern = "foo";
         let contents = "foobarbaz";
         let output = pattern_match(&pattern, &contents);
@@ -265,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_match2(){
+    fn test_pattern_match2() {
         let pattern = "foo";
         let contents = "barbaz";
         let output = pattern_match(&pattern, &contents);
@@ -274,16 +300,16 @@ mod tests {
     }
 
     #[test]
-    fn test_foo(){
-        // let x = vec!["a", "b"];
-        // for i in x.iter() {
-        //     println!("{:?}", i);
-        // }
+    fn test_foo() {
+// let x = vec!["a", "b"];
+// for i in x.iter() {
+//     println!("{:?}", i);
+// }
     }
 
-    // #[test]
-    // fn test_stdin_stdout_mock(){
-    //     let input = "foo\nbar\nbaz\n";
-    //     let mut output = Vec::new();
-    // }
+// #[test]
+// fn test_stdin_stdout_mock(){
+//     let input = "foo\nbar\nbaz\n";
+//     let mut output = Vec::new();
+// }
 }
