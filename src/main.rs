@@ -88,6 +88,44 @@ fn write_after(num_after: usize,
         writeln!(write_handle, "{}", "--");
 }
 
+struct MatchIterator <'a, I> 
+where 
+    I: IntoIterator,
+    I: IntoIterator<Item = String>,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Display,
+{
+    mp: &'a mut MultiPeek<I>,
+    config: &'a Config,
+}
+impl MatchIterator {
+    fn new<I>(input: I, config: &Config)
+    where
+    I: IntoIterator,
+    I: IntoIterator<Item = String>,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
+    <I as std::iter::IntoIterator>::Item: std::fmt::Display,
+    {
+    let mut mp = multipeek(input);
+    MatchIterator { mp: &mp, config: config }
+    }
+}
+// impl Iterator for MatchIterator {
+//     type Item = String;
+//     fn next(&mut self) -> Option<String> {
+//         let line = self.input.next();
+//         match line {
+//             Some(l) => {
+//                 match l {
+//                     Ok(l_val) => Some(format!("foo: {}", l_val)),
+//                     Err(e) => Some(format!("error parsing line: {:?}", e)),
+//                 }
+//             }
+//             None => None
+//         }
+//     }
+// }
+
 fn match_lines_with_buffer<I>(input: I, writer: &Writer, config: &Config)
 where
     I: IntoIterator,
@@ -108,7 +146,7 @@ where
         let line = mp.next();
         match line {
             Some(l) => {
-                println!("{:?}", l);
+                println!("{:?}", l); // dev only
                 if pattern_match(&pattern, &l) {
                     // first write out the previous lines buffer
                     // if before_size > 0 {
