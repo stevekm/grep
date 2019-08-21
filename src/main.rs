@@ -88,26 +88,20 @@ fn write_after(num_after: usize,
         writeln!(write_handle, "{}", "--");
 }
 
-struct MatchIterator <'a, I> 
-where 
-    I: IntoIterator,
-    I: IntoIterator<Item = String>,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Display,
+struct MatchIterator <'a, I>
+where
+    I: std::iter::Iterator,
 {
-    mp: &'a mut MultiPeek<I>,
+    mp: MultiPeek<I>,
     config: &'a Config,
 }
-impl MatchIterator {
-    fn new<I>(input: I, config: &Config)
-    where
-    I: IntoIterator,
-    I: IntoIterator<Item = String>,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Debug,
-    <I as std::iter::IntoIterator>::Item: std::fmt::Display,
-    {
+impl<'a, I> MatchIterator <'a, I>
+where
+    I: std::iter::Iterator,
+{
+    fn new(input: I, config: &Config) -> MatchIterator<I> {
     let mut mp = multipeek(input);
-    MatchIterator { mp: &mp, config: config }
+    MatchIterator { mp: mp, config: config }
     }
 }
 // impl Iterator for MatchIterator {
@@ -152,7 +146,7 @@ where
                     // if before_size > 0 {
                     //     write_before(&buffer, &mut write_handle);
                     // }
-                    
+
                     // write the current line
                     writeln!(write_handle, "{}", l);
 
